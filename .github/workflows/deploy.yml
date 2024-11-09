@@ -1,0 +1,55 @@
+name: Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: "eu-central-1"
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TF_API_TOKEN: ${{ secrets.TERRAFORM_TOKEN }}
+  TF_WORKING_DIRECTORY: "terraform/"
+
+jobs:
+  infrastructure:
+    name: "Terraform Apply"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.TF_WORKING_DIRECTORY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          cli_config_credentials_token: ${{ env.TF_API_TOKEN }}
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Apply
+        id: apply
+        run: terraform apply -auto-approve -no-color
+
+  code:
+    name: "Deploy Code"
+    needs: infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4.0.2
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNTID }}:role/GithubTrigger
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Deploy Code
+        run: make deploy
