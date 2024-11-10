@@ -55,7 +55,7 @@ func (f *feedImpl) ScrapeAWSNews(ctx context.Context, url string) ([]NewsItem, e
 			Description: html2text.HTML2Text(item.Description),
 			GUID:        item.GUID,
 			Link:        item.Link,
-			Published:   item.Published,
+			Published:   item.PublishedParsed.String(),
 			Title:       item.Title,
 		})
 	}
@@ -63,6 +63,5 @@ func (f *feedImpl) ScrapeAWSNews(ctx context.Context, url string) ([]NewsItem, e
 	if len(newsItems) == 0 {
 		return nil, fmt.Errorf("no valid news items found in feed")
 	}
-
 	return newsItems, nil
 }
