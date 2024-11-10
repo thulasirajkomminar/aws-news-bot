@@ -10,6 +10,7 @@ variable "bluesky_handle" {
 variable "bluesky_password_path" {
   description = "The path to the password in SSM"
   type        = string
+  sensitive   = true
 
   validation {
     condition     = can(regex("^/[a-zA-Z0-9-_/]+$", var.bluesky_password_path))

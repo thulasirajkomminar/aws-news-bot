@@ -14,6 +14,7 @@ import (
 type PublishStatus struct {
 	ExpiresAt int64 `dynamodbav:"ExpiresAt"` // TTL attribute
 	GUID      string
+	Published string
 	Title     string
 }
 

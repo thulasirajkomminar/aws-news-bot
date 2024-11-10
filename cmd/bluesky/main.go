@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/komminarlabs/aws-news/internal/bluesky"
 	"github.com/komminarlabs/aws-news/internal/config"
@@ -13,7 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Handler(ctx context.Context, event events.KinesisEvent) error {
+func Handler(ctx context.Context) error {
 	cfg, err := config.New(ctx)
 	if err != nil {
 		log.Logger.Error().Err(err).Msg("error loading config")
@@ -43,6 +42,10 @@ func Handler(ctx context.Context, event events.KinesisEvent) error {
 		return err
 	}
 
+	// Create rate limiter for Bluesky API calls
+	rateLimiter := time.NewTicker(time.Second) // 1 post per second
+	defer rateLimiter.Stop()
+
 	for _, item := range newsItems {
 		isPublished, err := db.IsPublished(ctx, item.GUID)
 		if err != nil {
@@ -51,6 +54,13 @@ func Handler(ctx context.Context, event events.KinesisEvent) error {
 		}
 
 		if !isPublished {
+			select {
+			case <-rateLimiter.C:
+				// Continue with the post
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+
 			err := bsky.Post(ctx, cfg.Bluesky.Handle, item)
 			if err != nil {
 				log.Logger.Warn().Err(err).Msg("error posting to Bluesky")
@@ -58,8 +68,9 @@ func Handler(ctx context.Context, event events.KinesisEvent) error {
 			}
 
 			status := dynamodb.PublishStatus{
-				GUID:  item.GUID,
-				Title: item.Title,
+				GUID:      item.GUID,
+				Published: item.Published,
+				Title:     item.Title,
 			}
 			err = db.StorePublishStatus(ctx, status)
 			if err != nil {

@@ -23,6 +23,7 @@ type NewsItem struct {
 	Description string
 	GUID        string
 	Link        string
+	Published   string
 	Title       string
 }
 
@@ -54,6 +55,7 @@ func (f *feedImpl) ScrapeAWSNews(ctx context.Context, url string) ([]NewsItem, e
 			Description: html2text.HTML2Text(item.Description),
 			GUID:        item.GUID,
 			Link:        item.Link,
+			Published:   item.Published,
 			Title:       item.Title,
 		})
 	}
