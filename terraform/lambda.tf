@@ -34,3 +34,24 @@ module "lambda" {
     RSSFEED_URL           = var.rssfeed_url
   }
 }
+
+resource "aws_cloudwatch_event_rule" "default" {
+  name                = local.name
+  description         = "Run ${local.name} every 1 hour"
+  schedule_expression = "cron(5/60 * ? * * *)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "default" {
+  rule      = aws_cloudwatch_event_rule.default.name
+  target_id = local.name
+  arn       = module.lambda.arn
+}
+
+resource "aws_lambda_permission" "default" {
+  statement_id  = "AllowExecutionFromCloudWatch"
+  action        = "lambda:InvokeFunction"
+  function_name = module.lambda.name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.default.arn
+}
