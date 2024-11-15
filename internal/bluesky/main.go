@@ -93,6 +93,10 @@ func generateTags(categories []string) []string {
 				tag = strings.ReplaceAll(tag, "-", " ")
 				tag = toCamelCase(tag)
 				tags = append(tags, "#"+tag)
+			} else if !strings.Contains(subCategory, ":") && !strings.Contains(subCategory, "/") {
+				tag := strings.ReplaceAll(subCategory, "-", " ")
+				tag = toCamelCase(tag)
+				tags = append(tags, "#"+tag)
 			}
 		}
 	}

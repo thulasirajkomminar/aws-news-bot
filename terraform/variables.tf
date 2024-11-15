@@ -24,12 +24,22 @@ variable "environment" {
   default     = "production"
 }
 
-variable "rssfeed_url" {
-  description = "The URL of the RSS feed"
+variable "newsblog_rssfeed_url" {
+  description = "The URL of the news blog RSS feed"
   type        = string
 
   validation {
-    condition     = can(regex("^https?://", var.rssfeed_url))
-    error_message = "The RSS feed URL must start with http:// or https://"
+    condition     = can(regex("^https?://", var.newsblog_rssfeed_url))
+    error_message = "The news blog RSS feed URL must start with http:// or https://"
+  }
+}
+
+variable "whatsnew_rssfeed_url" {
+  description = "The URL of the what's new RSS feed"
+  type        = string
+
+  validation {
+    condition     = can(regex("^https?://", var.whatsnew_rssfeed_url))
+    error_message = "The what't new RSS feed URL must start with http:// or https://"
   }
 }
