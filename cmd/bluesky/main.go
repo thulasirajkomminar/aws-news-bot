@@ -12,33 +12,34 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Handler(ctx context.Context) error {
-	cfg, err := config.New(ctx)
+// postToBluesky posts an item to Bluesky and stores the publish status in DynamoDB.
+func postToBluesky(ctx context.Context, cfg *config.Config, db dynamodb.DynamoDB, bsky bluesky.Bluesky, item rss.NewsItem, suffix string) error {
+	err := bsky.Post(ctx, cfg.Bluesky.Handle, item)
 	if err != nil {
-		log.Logger.Error().Err(err).Msg("error loading config")
+		log.Warn().Err(err).Msg("error posting to Bluesky")
 		return err
 	}
 
-	// Add reasonable timeout for RSS feed scraping
-	scrapeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
+	status := dynamodb.PublishStatus{
+		GUID:      item.GUID + suffix,
+		Published: item.Published,
+		Title:     item.Title,
+	}
+	err = db.StorePublishStatus(ctx, status)
+	if err != nil {
+		log.Warn().Err(err).Msg("error storing publish status")
+	} else {
+		log.Debug().Msg("stored publish status for: " + item.Title)
+	}
+	return nil
+}
 
+// processRSSFeed processes an RSS feed and posts items to Bluesky.
+func processRSSFeed(ctx context.Context, cfg *config.Config, db dynamodb.DynamoDB, bsky bluesky.Bluesky, feedURL string, suffix string) error {
 	rssFeed := rss.NewFeed()
-	newsItems, err := rssFeed.ScrapeAWSNews(scrapeCtx, cfg.RSSFeed.URL)
+	newsItems, err := rssFeed.ScrapeFeed(ctx, feedURL)
 	if err != nil {
-		log.Logger.Error().Err(err).Msg("error parsing RSS feed")
-		return err
-	}
-
-	db, err := dynamodb.NewDynamoDB(ctx, cfg.DynamoDB.TableName)
-	if err != nil {
-		log.Logger.Error().Err(err).Msg("error creating DynamoDB client")
-		return err
-	}
-
-	bsky, err := bluesky.NewBluesky(cfg.Bluesky.Handle, cfg.Bluesky.Password)
-	if err != nil {
-		log.Logger.Error().Err(err).Msg("error creating Bluesky client")
+		log.Error().Err(err).Msg("error parsing RSS feed")
 		return err
 	}
 
@@ -47,9 +48,9 @@ func Handler(ctx context.Context) error {
 	defer rateLimiter.Stop()
 
 	for _, item := range newsItems {
-		isPublished, err := db.IsPublished(ctx, item.GUID)
+		isPublished, err := db.IsPublished(ctx, item.GUID+suffix)
 		if err != nil {
-			log.Logger.Warn().Err(err).Msg("error checking publish status")
+			log.Warn().Err(err).Msg("error checking publish status")
 			continue
 		}
 
@@ -61,24 +62,48 @@ func Handler(ctx context.Context) error {
 				return ctx.Err()
 			}
 
-			err := bsky.Post(ctx, cfg.Bluesky.Handle, item)
+			err := postToBluesky(ctx, cfg, db, bsky, item, suffix)
 			if err != nil {
-				log.Logger.Warn().Err(err).Msg("error posting to Bluesky")
 				continue
 			}
-
-			status := dynamodb.PublishStatus{
-				GUID:      item.GUID,
-				Published: item.Published,
-				Title:     item.Title,
-			}
-			err = db.StorePublishStatus(ctx, status)
-			if err != nil {
-				log.Logger.Warn().Err(err).Msg("error storing publish status")
-			} else {
-				log.Logger.Debug().Msg("stored publish status for: " + item.Title)
-			}
 		}
+	}
+	return nil
+}
+
+func Handler(ctx context.Context) error {
+	cfg, err := config.New(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("error loading config")
+		return err
+	}
+
+	db, err := dynamodb.NewDynamoDB(ctx, cfg.DynamoDB.TableName)
+	if err != nil {
+		log.Error().Err(err).Msg("error creating DynamoDB client")
+		return err
+	}
+
+	bsky, err := bluesky.NewBluesky(cfg.Bluesky.Handle, cfg.Bluesky.Password)
+	if err != nil {
+		log.Error().Err(err).Msg("error creating Bluesky client")
+		return err
+	}
+
+	// Add reasonable timeout for RSS feed scraping
+	scrapeCtx, cancel := context.WithTimeout(ctx, 300*time.Second)
+	defer cancel()
+
+	err = processRSSFeed(scrapeCtx, cfg, db, bsky, cfg.WhatsNewRSSFeed.URL, "-whatsnew")
+	if err != nil {
+		log.Error().Err(err).Msg("error scraping AWS what's new feed")
+		return err
+	}
+
+	err = processRSSFeed(scrapeCtx, cfg, db, bsky, cfg.NewsBlogRSSFeed.URL, "-newsblog")
+	if err != nil {
+		log.Error().Err(err).Msg("error scraping AWS news blog feed")
+		return err
 	}
 	return nil
 }

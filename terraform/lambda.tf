@@ -15,7 +15,7 @@ data "aws_iam_policy_document" "lambda_policy" {
 
 module "lambda" {
   source  = "schubergphilis/mcaf-lambda/aws"
-  version = "~> 1.4.1"
+  version = "1.4.1"
 
   name          = local.name
   description   = "AWS News Update Lambda"
@@ -25,13 +25,15 @@ module "lambda" {
   create_policy = true
   log_retention = 3
   policy        = data.aws_iam_policy_document.lambda_policy.json
+  timeout       = 300
   tags          = local.tags
 
   environment = {
     BLUESKY_HANDLE        = var.bluesky_handle
     BLUESKY_PASSWORD_PATH = var.bluesky_password_path
     DYNAMODB_TABLE_NAME   = module.table.id
-    RSSFEED_URL           = var.rssfeed_url
+    NEWSBLOG_RSSFEED_URL  = var.newsblog_rssfeed_url
+    WHATSNEW_RSSFEED_URL  = var.whatsnew_rssfeed_url
   }
 }
 

@@ -19,14 +19,19 @@ type DynamoDB struct {
 	TableName string `env:"DYNAMODB_TABLE_NAME"`
 }
 
-type RSSFeed struct {
-	URL string `env:"RSSFEED_URL"`
+type NewsBlogRSSFeed struct {
+	URL string `env:"NEWSBLOG_RSSFEED_URL"`
+}
+
+type WhatsNewRSSFeed struct {
+	URL string `env:"WHATSNEW_RSSFEED_URL"`
 }
 
 type Config struct {
-	Bluesky  Bluesky
-	DynamoDB DynamoDB
-	RSSFeed  RSSFeed
+	Bluesky         Bluesky
+	DynamoDB        DynamoDB
+	NewsBlogRSSFeed NewsBlogRSSFeed
+	WhatsNewRSSFeed WhatsNewRSSFeed
 }
 
 func New(ctx context.Context) (*Config, error) {

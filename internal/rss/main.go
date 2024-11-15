@@ -9,7 +9,7 @@ import (
 )
 
 type Feed interface {
-	ScrapeAWSNews(ctx context.Context, url string) ([]NewsItem, error)
+	ScrapeFeed(ctx context.Context, url string) ([]NewsItem, error)
 }
 
 type feedImpl struct{}
@@ -27,7 +27,7 @@ type NewsItem struct {
 	Title       string
 }
 
-func (f *feedImpl) ScrapeAWSNews(ctx context.Context, url string) ([]NewsItem, error) {
+func (f *feedImpl) ScrapeFeed(ctx context.Context, url string) ([]NewsItem, error) {
 	fp := gofeed.NewParser()
 	feed, err := fp.ParseURL(url)
 	if err != nil {
