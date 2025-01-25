@@ -14,6 +14,7 @@ require (
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/reiver/go-atproto v0.0.0-20240909141243-3aa4e1dc83b2
 	github.com/rs/zerolog v1.33.0
+	golang.org/x/text v0.21.0
 )
 
 require (
@@ -47,8 +48,7 @@ require (
 	github.com/reiver/go-nsid v0.0.0-20240827010024-502157631805 // indirect
 	github.com/reiver/go-xrpc v0.0.0-20240905133829-2de40c4662d8 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
-	golang.org/x/net v0.31.0 // indirect
-	golang.org/x/sys v0.27.0 // indirect
-	golang.org/x/text v0.20.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
