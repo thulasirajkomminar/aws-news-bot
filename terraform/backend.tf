@@ -1,10 +1,10 @@
 terraform {
   backend "remote" {
     hostname     = "app.terraform.io"
-    organization = "komminarlabs"
+    organization = "KomminarLabs"
 
     workspaces {
-      name = "aws-news-update"
+      name = "aws-news"
     }
   }
 }
