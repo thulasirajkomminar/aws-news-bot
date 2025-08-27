@@ -40,6 +40,8 @@ module "lambda" {
 }
 
 resource "aws_cloudwatch_event_rule" "default" {
+  count = var.environment == "prd" ? 1 : 0
+
   name                = local.name
   description         = "Run ${local.name} every 1 hour"
   schedule_expression = "cron(5/60 * ? * * *)"
@@ -47,15 +49,19 @@ resource "aws_cloudwatch_event_rule" "default" {
 }
 
 resource "aws_cloudwatch_event_target" "default" {
-  rule      = aws_cloudwatch_event_rule.default.name
+  count = var.environment == "prd" ? 1 : 0
+
+  rule      = aws_cloudwatch_event_rule.default[0].name
   target_id = local.name
   arn       = module.lambda.arn
 }
 
 resource "aws_lambda_permission" "default" {
+  count = var.environment == "prd" ? 1 : 0
+
   statement_id  = "AllowExecutionFromCloudWatch"
   action        = "lambda:InvokeFunction"
   function_name = module.lambda.name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.default.arn
+  source_arn    = aws_cloudwatch_event_rule.default[0].arn
 }
