@@ -1,6 +1,7 @@
 # Configuration
+ENV ?= dev
 AWS_REGION ?= eu-central-1
-LAMBDA_FUNCTION ?= AWS-News-Bot-$(AWS_REGION)
+LAMBDA_FUNCTION ?= AWS-News-Bot-$(ENV)-$(AWS_REGION)
 
 clean:
 	rm -rf bin && mkdir bin
@@ -15,7 +16,7 @@ package: build
 	@cd bin/awsnewsbot && zip -r9 ../../artifacts/awsnewsbot.zip bootstrap
 
 deploy: package
-	@echo "Deploying to $(LAMBDA_FUNCTION) in $(AWS_REGION)..."
+	@echo "Updating function $(LAMBDA_FUNCTION) in $(AWS_REGION) in $(ENV) environment..."
 	@aws lambda update-function-code \
 		--region $(AWS_REGION) \
 		--function-name $(LAMBDA_FUNCTION) \

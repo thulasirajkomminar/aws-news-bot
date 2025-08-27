@@ -10,7 +10,7 @@ on:
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   TF_API_TOKEN: ${{ secrets.TERRAFORM_TOKEN }}
-  TF_WORKING_DIRECTORY: "terraform/"
+  TF_WORKING_DIRECTORY: "infra/terraform/dev"
 
 permissions:
   contents: read
