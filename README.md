@@ -1,1 +1,1 @@
-# aws-news
+# aws-news-bot
