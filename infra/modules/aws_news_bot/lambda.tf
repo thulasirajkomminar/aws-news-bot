@@ -15,16 +15,14 @@ data "aws_iam_policy_document" "lambda_policy" {
 
 module "lambda" {
   source  = "schubergphilis/mcaf-lambda/aws"
-  version = "1.4.1"
+  version = "2.3.1"
 
   name          = local.name
-  description   = "AWS News Update Lambda"
-  runtime       = "provided.al2"
-  handler       = "bootstrap"
   architecture  = "arm64"
-  create_policy = true
+  description   = "AWS News Bot Lambda"
+  handler       = "bootstrap"
   log_retention = 3
-  policy        = data.aws_iam_policy_document.lambda_policy.json
+  runtime       = "provided.al2"
   timeout       = 300
   tags          = local.tags
 
@@ -35,13 +33,17 @@ module "lambda" {
     NEWSBLOG_RSSFEED_URL  = var.newsblog_rssfeed_url
     WHATSNEW_RSSFEED_URL  = var.whatsnew_rssfeed_url
   }
+
+  execution_role = {
+    policy = data.aws_iam_policy_document.lambda_policy.json
+  }
 }
 
 resource "aws_cloudwatch_event_rule" "default" {
   name                = local.name
   description         = "Run ${local.name} every 1 hour"
   schedule_expression = "cron(5/60 * ? * * *)"
-  state               = "ENABLED"
+  state               = var.environment == "prd" ? "ENABLED" : "DISABLED"
 }
 
 resource "aws_cloudwatch_event_target" "default" {

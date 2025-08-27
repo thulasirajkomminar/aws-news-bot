@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/komminarlabs/aws-news/internal/rss"
 	"github.com/reiver/go-atproto/com/atproto/repo"
 	"github.com/reiver/go-atproto/com/atproto/server"
+	"github.com/thulasirajkomminar/aws-news-bot/internal/pkg/rss"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )

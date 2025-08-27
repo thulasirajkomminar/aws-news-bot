@@ -21,7 +21,11 @@ variable "bluesky_password_path" {
 variable "environment" {
   type        = string
   description = "Environment name for deployment"
-  default     = "production"
+
+  validation {
+    condition     = contains(["dev", "prd"], var.environment)
+    error_message = "Allowed values for environment are \"dev\", \"prd\"."
+  }
 }
 
 variable "newsblog_rssfeed_url" {
