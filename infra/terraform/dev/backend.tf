@@ -4,7 +4,7 @@ terraform {
     organization = "KomminarLabs"
 
     workspaces {
-      name = "aws-news"
+      name = "aws-news-bot-dev"
     }
   }
 }
