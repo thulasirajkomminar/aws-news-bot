@@ -4,8 +4,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - infra/terraform/**
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
