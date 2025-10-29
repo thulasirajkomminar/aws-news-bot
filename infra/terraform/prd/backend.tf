@@ -1,7 +1,7 @@
 terraform {
   backend "remote" {
     hostname     = "app.terraform.io"
-    organization = "KomminarLabs"
+    organization = "thulasirajkomminar"
 
     workspaces {
       name = "aws-news-bot-prd"
