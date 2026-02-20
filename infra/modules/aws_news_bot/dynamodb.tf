@@ -1,6 +1,6 @@
 module "table" {
   source  = "schubergphilis/mcaf-dynamodb/aws"
-  version = "0.2.0"
+  version = "0.4.0"
 
   name               = local.name
   hash_key           = "GUID"

@@ -15,14 +15,14 @@ data "aws_iam_policy_document" "lambda_policy" {
 
 module "lambda" {
   source  = "schubergphilis/mcaf-lambda/aws"
-  version = "2.3.1"
+  version = "3.0.0"
 
   name          = local.name
   architecture  = "arm64"
   description   = "AWS News Bot Lambda"
   handler       = "bootstrap"
   log_retention = 3
-  runtime       = "provided.al2"
+  runtime       = "provided.al2023"
   timeout       = 300
   tags          = local.tags
 
