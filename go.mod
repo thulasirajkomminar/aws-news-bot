@@ -48,6 +48,6 @@ require (
 	github.com/reiver/go-nsid v0.0.0-20240827010024-502157631805 // indirect
 	github.com/reiver/go-xrpc v0.0.0-20240905133829-2de40c4662d8 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
-	golang.org/x/net v0.36.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
 )
