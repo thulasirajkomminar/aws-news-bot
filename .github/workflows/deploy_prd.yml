@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -46,9 +46,9 @@ jobs:
     environment: prd
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4.0.2
+        uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNTID }}:role/GithubTrigger
           aws-region: ${{ env.AWS_REGION }}
