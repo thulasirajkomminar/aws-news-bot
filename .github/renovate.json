@@ -1,0 +1,149 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":rebaseStalePrs",
+    ":separatePatchReleases"
+  ],
+  "labels": ["dependencies"],
+  "schedule": ["before 9am on Monday"],
+  "timezone": "UTC",
+  "automerge": false,
+  "prConcurrentLimit": 8,
+  "prHourlyLimit": 3,
+  "rebaseWhen": "behind-base-branch",
+  "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+  "packageRules": [
+    {
+      "description": "── LAMBDA: Go runtime deps (patch) ──",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["require"],
+      "matchUpdateTypes": ["patch"],
+      "matchFileNames": ["go.mod", "go.sum"],
+      "groupName": "Lambda: Go direct deps (patch)",
+      "labels": ["dependencies", "lambda"]
+    },
+    {
+      "description": "── LAMBDA: Go runtime deps (minor) ──",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["require"],
+      "matchUpdateTypes": ["minor"],
+      "matchFileNames": ["go.mod"],
+      "groupName": "Lambda: Go direct deps (minor)",
+      "labels": ["dependencies", "lambda"]
+    },
+    {
+      "description": "── LAMBDA: AWS Lambda Go SDK ──",
+      "matchManagers": ["gomod"],
+      "matchPackagePatterns": [
+        "github.com/aws/aws-lambda-go",
+        "github.com/aws/aws-sdk-go-v2",
+        "github.com/aws/aws-sdk-go"
+      ],
+      "groupName": "Lambda: AWS SDKs",
+      "labels": ["dependencies", "lambda", "aws-sdk"]
+    },
+    {
+      "description": "── LAMBDA: Go major bumps ──",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["major"],
+      "groupName": null,
+      "labels": ["breaking-change", "dependencies", "lambda"]
+    },
+    {
+      "description": "── LAMBDA: Go indirect/transitive ──",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["indirect"],
+      "groupName": "Lambda: Go indirect deps",
+      "labels": ["dependencies", "lambda"]
+    },
+    {
+      "description": "── INFRA: Terraform AWS provider (minor/patch) ──",
+      "matchManagers": ["terraform"],
+      "matchDepTypes": ["provider"],
+      "matchPackagePatterns": ["hashicorp/aws"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchFileNames": ["infra/**"],
+      "groupName": "Infra: AWS provider (minor/patch)",
+      "labels": ["dependencies", "terraform", "infra"]
+    },
+    {
+      "description": "── INFRA: Terraform provider major ──",
+      "matchManagers": ["terraform"],
+      "matchDepTypes": ["provider"],
+      "matchUpdateTypes": ["major"],
+      "matchFileNames": ["infra/**"],
+      "groupName": "Infra: Provider major upgrades",
+      "labels": ["breaking-change", "dependencies", "terraform", "infra"]
+    },
+    {
+      "description": "── INFRA: Terraform non-AWS provider (minor/patch) ──",
+      "matchManagers": ["terraform"],
+      "matchDepTypes": ["provider"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchFileNames": ["infra/**"],
+      "excludePackagePatterns": ["hashicorp/aws"],
+      "groupName": "Infra: Non-AWS provider updates",
+      "labels": ["dependencies", "terraform", "infra"]
+    },
+    {
+      "description": "── INFRA: Terraform module sources ──",
+      "matchManagers": ["terraform"],
+      "matchDepTypes": ["module"],
+      "matchFileNames": ["infra/**"],
+      "groupName": "Infra: Module sources",
+      "labels": ["dependencies", "terraform", "infra"]
+    },
+    {
+      "description": "── SHARED: GitHub Actions ──",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "labels": ["dependencies", "ci"]
+    },
+    {
+      "description": "── SHARED: Go toolchain ──",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["golang"],
+      "groupName": "Go toolchain",
+      "labels": ["go-version"]
+    },
+    {
+      "description": "── SHARED: Terraform CLI version ──",
+      "matchManagers": ["terraform"],
+      "matchDepTypes": ["required_version"],
+      "groupName": "Terraform CLI version",
+      "labels": ["terraform"]
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "Go version in CI workflows",
+      "customType": "regex",
+      "fileMatch": ["^\\.github/workflows/.*\\.ya?ml$", "^\\.go-version$"],
+      "matchStrings": ["go-version[:\\s]+['\"]?(?<currentValue>[\\d\\.]+)['\"]?"],
+      "depNameTemplate": "golang",
+      "datasourceTemplate": "golang-version"
+    },
+    {
+      "description": "Terraform version in CI / .terraform-version",
+      "customType": "regex",
+      "fileMatch": [
+        "^\\.terraform-version$",
+        "^\\.tool-versions$",
+        "^\\.github/workflows/.*\\.ya?ml$"
+      ],
+      "matchStrings": ["terraform[\\s:=]+['\"]?(?<currentValue>[\\d\\.]+)['\"]?"],
+      "depNameTemplate": "hashicorp/terraform",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    }
+  ],
+  "terraform": {
+    "enabled": true
+  },
+  "ignorePaths": ["**/testdata/**", "**/vendor/**"],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  }
+}
