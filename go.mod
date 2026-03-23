@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.0
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.68.3
 	github.com/caarlos0/env/v11 v11.4.0
-	github.com/k3a/html2text v1.3.0
+	github.com/k3a/html2text v1.4.0
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/reiver/go-atproto v0.0.0-20250506180748-6bcb24fc8a6d
 	github.com/rs/zerolog v1.34.0
