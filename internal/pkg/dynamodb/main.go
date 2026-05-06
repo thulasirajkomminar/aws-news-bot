@@ -69,14 +69,24 @@ func (db *Store) StorePublishStatus(ctx context.Context, status PublishStatus) e
 func (db *Store) IsPublishedBatch(ctx context.Context, guids []string) (map[string]bool, error) {
 	result := make(map[string]bool, len(guids))
 
+	// BatchGetItem rejects requests with duplicate keys; dedup defensively
+	// because RSS feeds can republish the same GUID.
+	unique := make([]string, 0, len(guids))
+
 	for _, guid := range guids {
+		if _, seen := result[guid]; seen {
+			continue
+		}
+
 		result[guid] = false
+
+		unique = append(unique, guid)
 	}
 
-	for start := 0; start < len(guids); start += batchGetChunkSize {
-		end := min(start+batchGetChunkSize, len(guids))
+	for start := 0; start < len(unique); start += batchGetChunkSize {
+		end := min(start+batchGetChunkSize, len(unique))
 
-		err := db.fetchBatch(ctx, guids[start:end], result)
+		err := db.fetchBatch(ctx, unique[start:end], result)
 		if err != nil {
 			return nil, err
 		}

@@ -1,15 +1,22 @@
 data "aws_iam_policy_document" "lambda_policy" {
   statement {
     actions = [
+      "dynamodb:BatchGetItem",
       "dynamodb:GetItem",
       "dynamodb:PutItem",
       "dynamodb:UpdateItem",
       "dynamodb:DeleteItem",
+    ]
+    resources = [module.table.arn]
+  }
+
+  statement {
+    actions = [
       "ssm:Describe*",
       "ssm:Get*",
       "ssm:List*",
     ]
-    resources = ["*"]
+    resources = ["arn:aws:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter${var.bluesky_password_path}"]
   }
 }
 

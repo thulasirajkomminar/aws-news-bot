@@ -173,14 +173,18 @@ func TestRkeyFor_StableAndValid(t *testing.T) {
 		t.Fatalf("rkeyFor produced collision for distinct keys")
 	}
 
-	if got, want := len(first), rkeyHashBytes*2; got != want {
+	if got, want := len(first), tidLength; got != want {
 		t.Fatalf("rkey length = %d, want %d", got, want)
 	}
 
-	for _, r := range first {
-		valid := (r >= 'a' && r <= 'f') || (r >= '0' && r <= '9')
-		if !valid {
-			t.Fatalf("rkey %q contains non-Bluesky-safe rune %q", first, r)
+	for i, r := range first {
+		if !strings.ContainsRune(tidAlphabet, r) {
+			t.Fatalf("rkey %q contains rune %q outside TID alphabet", first, r)
+		}
+
+		// First char must lie in the first half so the TID's top bit is zero.
+		if i == 0 && !strings.ContainsRune(tidAlphabet[:16], r) {
+			t.Fatalf("rkey %q has invalid first char %q (top bit must be 0)", first, r)
 		}
 	}
 }
