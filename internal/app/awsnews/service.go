@@ -2,8 +2,8 @@ package awsnews
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -12,56 +12,48 @@ import (
 	"github.com/thulasirajkomminar/aws-news-bot/internal/pkg/dynamodb"
 )
 
-const feedScrapeTimeout = 300 * time.Second
-
 // Service represents the AWS News service.
 type Service struct {
-	cfg  *config.Config
-	db   dynamodb.DynamoDB
-	bsky bluesky.Bluesky
+	cfg *config.Config
+	db  *dynamodb.Store
 }
 
 // NewService creates a new AWS News service instance.
-func NewService(ctx context.Context, cfg *config.Config) (*Service, error) {
-	db, err := dynamodb.NewDynamoDB(ctx, cfg.DynamoDB.TableName)
-	if err != nil {
-		log.Error().Err(err).Msg("error creating DynamoDB client")
+func NewService(cfg *config.Config, db *dynamodb.Store) *Service {
+	return &Service{cfg: cfg, db: db}
+}
 
-		return nil, fmt.Errorf("creating DynamoDB client: %w", err)
-	}
-
-	bsky, err := bluesky.NewBluesky(ctx, cfg.Bluesky.Handle, cfg.Bluesky.Password)
+// ProcessFeeds re-authenticates Bluesky on every invocation (warm Lambda
+// containers can outlive the ~2h session JWT) and runs each feed
+// independently, joining any errors so one feed's outage doesn't silence
+// the other.
+func (s *Service) ProcessFeeds(ctx context.Context) error {
+	bsky, err := bluesky.NewClient(ctx, s.cfg.Bluesky.Handle, s.cfg.Bluesky.Password)
 	if err != nil {
 		log.Error().Err(err).Msg("error creating Bluesky client")
 
-		return nil, fmt.Errorf("creating Bluesky client: %w", err)
+		return fmt.Errorf("creating Bluesky client: %w", err)
 	}
 
-	return &Service{
-		cfg:  cfg,
-		db:   db,
-		bsky: bsky,
-	}, nil
-}
-
-// ProcessFeeds processes all RSS feeds and posts items to Bluesky.
-func (s *Service) ProcessFeeds(ctx context.Context) error {
-	scrapeCtx, cancel := context.WithTimeout(ctx, feedScrapeTimeout)
-	defer cancel()
-
-	err := s.processRSSFeed(scrapeCtx, s.cfg.WhatsNewRSSFeed.URL, "-whatsnew")
-	if err != nil {
-		log.Error().Err(err).Msg("error scraping AWS what's new feed")
-
-		return err
+	feeds := []struct {
+		url    string
+		suffix string
+		label  string
+	}{
+		{s.cfg.WhatsNewRSSFeed.URL, "-whatsnew", "whatsnew"},
+		{s.cfg.NewsBlogRSSFeed.URL, "-newsblog", "newsblog"},
 	}
 
-	err = s.processRSSFeed(scrapeCtx, s.cfg.NewsBlogRSSFeed.URL, "-newsblog")
-	if err != nil {
-		log.Error().Err(err).Msg("error scraping AWS news blog feed")
+	var errs []error
 
-		return err
+	for _, feed := range feeds {
+		err := s.processRSSFeed(ctx, bsky, feed.url, feed.suffix)
+		if err != nil {
+			log.Error().Err(err).Str("feed", feed.label).Msg("error processing feed")
+
+			errs = append(errs, fmt.Errorf("%s: %w", feed.label, err))
+		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }

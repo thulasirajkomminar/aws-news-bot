@@ -3,9 +3,12 @@ package bluesky
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
@@ -25,23 +28,20 @@ const (
 	productsPrefix       = "general:products/"
 	awsRootTag           = "#AWS"
 	tagSeparator         = " "
+	bodySeparator        = "\n\n"
 	maxPostLength        = 300
 	truncationSuffix     = "..."
-	truncationOverhead   = 8
+	numBodySeparators    = 2
+	rkeyHashBytes        = 8
 )
-
-// Bluesky is the contract for posting news items to Bluesky.
-type Bluesky interface {
-	Post(ctx context.Context, handle string, item *rss.NewsItem) error
-}
 
 // Client is an authenticated Bluesky XRPC client.
 type Client struct {
 	client *xrpc.Client
 }
 
-// NewBluesky authenticates against the Bluesky PDS and returns a Client.
-func NewBluesky(ctx context.Context, identifier, password string) (*Client, error) {
+// NewClient authenticates against the Bluesky PDS and returns a Client.
+func NewClient(ctx context.Context, identifier, password string) (*Client, error) {
 	client := &xrpc.Client{Host: defaultPDSHost}
 
 	out, err := atproto.ServerCreateSession(ctx, client, &atproto.ServerCreateSession_Input{
@@ -62,16 +62,19 @@ func NewBluesky(ctx context.Context, identifier, password string) (*Client, erro
 	return &Client{client: client}, nil
 }
 
-// Post creates a Bluesky post for the given news item under handle's repo.
-func (b *Client) Post(ctx context.Context, handle string, item *rss.NewsItem) error {
-	postText := constructPostText(item)
+// Post creates a Bluesky post for item under handle's repo, using key as a
+// stable identifier so re-attempts for the same logical item are detected
+// server-side as duplicates and reported as success (preventing duplicate
+// posts when DynamoDB persistence fails after a successful post).
+func (b *Client) Post(ctx context.Context, handle, key string, item *rss.NewsItem) error {
 	tags := generateTags(item.Categories)
-	facets := constructFacets(postText, tags)
+	postText, facets := buildPost(item, tags)
+	rkey := rkeyFor(key)
 
 	post := &bsky.FeedPost{
 		LexiconTypeID: collectionName,
 		Text:          postText,
-		CreatedAt:     time.Now().Format(time.RFC3339),
+		CreatedAt:     time.Now().Format(time.RFC3339Nano),
 		Facets:        facets,
 		Embed: &bsky.FeedPost_Embed{
 			EmbedExternal: &bsky.EmbedExternal{
@@ -88,40 +91,133 @@ func (b *Client) Post(ctx context.Context, handle string, item *rss.NewsItem) er
 	_, err := atproto.RepoCreateRecord(ctx, b.client, &atproto.RepoCreateRecord_Input{
 		Collection: collectionName,
 		Repo:       handle,
+		Rkey:       &rkey,
 		Record:     &lexutil.LexiconTypeDecoder{Val: post},
 	})
 	if err != nil {
+		if isDuplicateRecordErr(err) {
+			return nil
+		}
+
 		return fmt.Errorf("creating Bluesky record: %w", err)
 	}
 
 	return nil
 }
 
-func constructPostText(item *rss.NewsItem) string {
-	postDescription := "\n\n"
-	tags := generateTags(item.Categories)
-	remainingLength := maxPostLength - (len(item.Title+"\n") + len(strings.Join(tags, tagSeparator)))
+// rkeyFor derives a Bluesky-safe record key from an arbitrary stable
+// identifier (Rkeys must match a strict charset; truncated SHA-256 hex
+// satisfies it and gives ~64 bits of collision resistance).
+func rkeyFor(key string) string {
+	sum := sha256.Sum256([]byte(key))
 
-	switch {
-	case remainingLength > 0 && len(item.Description) > remainingLength:
-		postDescription += item.Description[:remainingLength-truncationOverhead] + truncationSuffix
-	case remainingLength > 0:
-		postDescription += item.Description
-	default:
+	return hex.EncodeToString(sum[:rkeyHashBytes])
+}
+
+func isDuplicateRecordErr(err error) bool {
+	msg := strings.ToLower(err.Error())
+
+	return strings.Contains(msg, "already exists") ||
+		strings.Contains(msg, "recordalreadyexists") ||
+		strings.Contains(msg, "duplicate")
+}
+
+// buildPost emits text and facets together so facet offsets point at the
+// trailing tag block, not at any hashtag-shaped substring inside the body.
+// Length is counted in runes (a closer approximation of Bluesky's grapheme
+// limit than byte length).
+func buildPost(item *rss.NewsItem, tags []string) (string, []*bsky.RichtextFacet) {
+	tagsJoined := strings.Join(tags, tagSeparator)
+
+	tagsRunes := utf8.RuneCountInString(tagsJoined)
+	separatorRunes := utf8.RuneCountInString(bodySeparator) * numBodySeparators
+	titleBudget := maxPostLength - tagsRunes - separatorRunes
+
+	title := truncateRunes(item.Title, titleBudget, truncationSuffix)
+	titleRunes := utf8.RuneCountInString(title)
+
+	descriptionBudget := titleBudget - titleRunes
+	description := truncateRunes(item.Description, descriptionBudget, truncationSuffix)
+
+	var sb strings.Builder
+
+	sb.WriteString(title)
+	sb.WriteString(bodySeparator)
+	sb.WriteString(description)
+	sb.WriteString(bodySeparator)
+
+	tagBlockStart := sb.Len()
+	sb.WriteString(tagsJoined)
+
+	return sb.String(), tagFacets(tags, tagBlockStart)
+}
+
+func tagFacets(tags []string, tagBlockStart int) []*bsky.RichtextFacet {
+	facets := make([]*bsky.RichtextFacet, 0, len(tags))
+	cursor := tagBlockStart
+
+	for _, tag := range tags {
+		end := cursor + len(tag)
+		facets = append(facets, &bsky.RichtextFacet{
+			Index: &bsky.RichtextFacet_ByteSlice{
+				ByteStart: int64(cursor),
+				ByteEnd:   int64(end),
+			},
+			Features: []*bsky.RichtextFacet_Features_Elem{
+				{
+					RichtextFacet_Tag: &bsky.RichtextFacet_Tag{
+						LexiconTypeID: richtextFacetTagType,
+						Tag:           strings.TrimPrefix(tag, "#"),
+					},
+				},
+			},
+		})
+
+		cursor = end + len(tagSeparator)
 	}
 
-	return item.Title + postDescription + "\n\n" + strings.Join(tags, tagSeparator)
+	return facets
+}
+
+func truncateRunes(s string, budget int, suffix string) string {
+	if budget <= 0 {
+		return ""
+	}
+
+	if utf8.RuneCountInString(s) <= budget {
+		return s
+	}
+
+	suffixRunes := utf8.RuneCountInString(suffix)
+	if budget <= suffixRunes {
+		return string([]rune(suffix)[:budget])
+	}
+
+	keep := budget - suffixRunes
+
+	return string([]rune(s)[:keep]) + suffix
 }
 
 func generateTags(categories []string) []string {
 	tags := []string{awsRootTag}
+	seen := map[string]struct{}{awsRootTag: {}}
 
 	for _, category := range categories {
 		for subCategory := range strings.SplitSeq(category, ",") {
 			subCategory = strings.TrimSpace(subCategory)
-			if tag, ok := categoryToTag(subCategory); ok {
-				tags = append(tags, tag)
+
+			tag, ok := categoryToTag(subCategory)
+			if !ok {
+				continue
 			}
+
+			if _, dup := seen[tag]; dup {
+				continue
+			}
+
+			seen[tag] = struct{}{}
+
+			tags = append(tags, tag)
 		}
 	}
 
@@ -150,33 +246,4 @@ func toCamelCase(str string) string {
 	}
 
 	return strings.Join(words, "")
-}
-
-func constructFacets(postText string, tags []string) []*bsky.RichtextFacet {
-	var facets []*bsky.RichtextFacet
-
-	for _, tag := range tags {
-		start := strings.Index(postText, tag)
-		if start == -1 {
-			continue
-		}
-
-		end := start + len(tag)
-		facets = append(facets, &bsky.RichtextFacet{
-			Index: &bsky.RichtextFacet_ByteSlice{
-				ByteStart: int64(start),
-				ByteEnd:   int64(end),
-			},
-			Features: []*bsky.RichtextFacet_Features_Elem{
-				{
-					RichtextFacet_Tag: &bsky.RichtextFacet_Tag{
-						LexiconTypeID: richtextFacetTagType,
-						Tag:           tag[1:],
-					},
-				},
-			},
-		})
-	}
-
-	return facets
 }

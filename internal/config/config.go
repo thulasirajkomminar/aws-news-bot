@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/caarlos0/env/v11"
 )
@@ -45,37 +45,30 @@ type Config struct {
 }
 
 // New parses configuration from environment variables and resolves the
-// Bluesky password from SSM Parameter Store.
-func New(ctx context.Context) (*Config, error) {
+// Bluesky password from SSM Parameter Store using the supplied AWS config.
+func New(ctx context.Context, awscfg *aws.Config) (*Config, error) {
 	cfg := Config{}
-	opts := env.Options{RequiredIfNoDef: true}
 
-	err := env.ParseWithOptions(&cfg, opts)
+	err := env.ParseWithOptions(&cfg, env.Options{RequiredIfNoDef: true})
 	if err != nil {
 		return nil, fmt.Errorf("parsing environment variables: %w", err)
-	}
-
-	awscfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("loading default AWS config: %w", err)
 	}
 
 	if cfg.Bluesky.PasswordPath == "" {
 		return nil, ErrMissingPasswordPath
 	}
 
-	ssmClient := ssm.NewFromConfig(awscfg)
-	decryption := true
+	ssmClient := ssm.NewFromConfig(*awscfg)
 
-	blueskyPasswordParam, err := ssmClient.GetParameter(ctx, &ssm.GetParameterInput{
+	param, err := ssmClient.GetParameter(ctx, &ssm.GetParameterInput{
 		Name:           &cfg.Bluesky.PasswordPath,
-		WithDecryption: &decryption,
+		WithDecryption: aws.Bool(true),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("fetching Bluesky password from SSM: %w", err)
 	}
 
-	cfg.Bluesky.Password = *blueskyPasswordParam.Parameter.Value
+	cfg.Bluesky.Password = *param.Parameter.Value
 
 	return &cfg, nil
 }

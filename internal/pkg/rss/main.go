@@ -13,16 +13,11 @@ import (
 // ErrNoNewsItems is returned when a feed contains no usable items.
 var ErrNoNewsItems = errors.New("no valid news items found in feed")
 
-// Feed is the contract for RSS feed scrapers.
-type Feed interface {
-	ScrapeFeed(ctx context.Context, url string) ([]NewsItem, error)
-}
-
-// Parser implements Feed using gofeed.
+// Parser scrapes RSS feeds using gofeed.
 type Parser struct{}
 
-// NewFeed returns a new Parser.
-func NewFeed() *Parser {
+// NewParser returns a new Parser.
+func NewParser() *Parser {
 	return &Parser{}
 }
 
@@ -40,16 +35,12 @@ type NewsItem struct {
 func (f *Parser) ScrapeFeed(ctx context.Context, url string) ([]NewsItem, error) {
 	fp := gofeed.NewParser()
 
-	feed, err := fp.ParseURL(url)
+	feed, err := fp.ParseURLWithContext(url, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("parsing RSS feed: %w", err)
 	}
 
-	newsItems, err := extractNewsItems(ctx, feed.Items)
-	if err != nil {
-		return nil, err
-	}
-
+	newsItems := extractNewsItems(feed.Items)
 	if len(newsItems) == 0 {
 		return nil, ErrNoNewsItems
 	}
@@ -57,7 +48,7 @@ func (f *Parser) ScrapeFeed(ctx context.Context, url string) ([]NewsItem, error)
 	return newsItems, nil
 }
 
-func extractNewsItems(ctx context.Context, items []*gofeed.Item) ([]NewsItem, error) {
+func extractNewsItems(items []*gofeed.Item) []NewsItem {
 	newsItems := make([]NewsItem, 0, len(items))
 
 	for _, item := range items {
@@ -65,21 +56,25 @@ func extractNewsItems(ctx context.Context, items []*gofeed.Item) ([]NewsItem, er
 			continue
 		}
 
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("context cancelled while parsing feed: %w", ctx.Err())
-		default:
-		}
-
 		newsItems = append(newsItems, NewsItem{
 			Categories:  item.Categories,
 			Description: html2text.HTML2Text(item.Description),
 			GUID:        item.GUID,
 			Link:        item.Link,
-			Published:   item.PublishedParsed.String(),
+			Published:   publishedString(item),
 			Title:       item.Title,
 		})
 	}
 
-	return newsItems, nil
+	return newsItems
+}
+
+// publishedString falls back to the raw <pubDate> text when gofeed cannot
+// parse it (PublishedParsed is nil for unrecognised date formats).
+func publishedString(item *gofeed.Item) string {
+	if item.PublishedParsed != nil {
+		return item.PublishedParsed.String()
+	}
+
+	return item.Published
 }
