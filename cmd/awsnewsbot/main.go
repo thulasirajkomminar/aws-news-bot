@@ -1,19 +1,16 @@
+// Package main is the entrypoint for the AWS news bot Lambda.
 package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/rs/zerolog/log"
+
 	"github.com/thulasirajkomminar/aws-news-bot/internal/app/awsnews"
 	"github.com/thulasirajkomminar/aws-news-bot/internal/config"
 )
-
-var service *awsnews.Service
-
-func Handler(ctx context.Context) error {
-	return service.ProcessFeeds(ctx)
-}
 
 func main() {
 	ctx := context.Background()
@@ -23,10 +20,17 @@ func main() {
 		log.Fatal().Err(err).Msg("error loading config")
 	}
 
-	service, err = awsnews.NewService(ctx, cfg)
+	service, err := awsnews.NewService(ctx, cfg)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error creating AWS News service")
 	}
 
-	lambda.Start(Handler)
+	lambda.Start(func(ctx context.Context) error {
+		err := service.ProcessFeeds(ctx)
+		if err == nil {
+			return nil
+		}
+
+		return fmt.Errorf("processing feeds: %w", err)
+	})
 }

@@ -1,23 +1,32 @@
+// Package rss parses AWS RSS feeds into NewsItem records.
 package rss
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/k3a/html2text"
 	"github.com/mmcdole/gofeed"
 )
 
+// ErrNoNewsItems is returned when a feed contains no usable items.
+var ErrNoNewsItems = errors.New("no valid news items found in feed")
+
+// Feed is the contract for RSS feed scrapers.
 type Feed interface {
 	ScrapeFeed(ctx context.Context, url string) ([]NewsItem, error)
 }
 
-type feedImpl struct{}
+// Parser implements Feed using gofeed.
+type Parser struct{}
 
-func NewFeed() Feed {
-	return &feedImpl{}
+// NewFeed returns a new Parser.
+func NewFeed() *Parser {
+	return &Parser{}
 }
 
+// NewsItem describes a single AWS news item.
 type NewsItem struct {
 	Categories  []string
 	Description string
@@ -27,26 +36,38 @@ type NewsItem struct {
 	Title       string
 }
 
-func (f *feedImpl) ScrapeFeed(ctx context.Context, url string) ([]NewsItem, error) {
+// ScrapeFeed downloads the RSS feed at url and returns its valid items.
+func (f *Parser) ScrapeFeed(ctx context.Context, url string) ([]NewsItem, error) {
 	fp := gofeed.NewParser()
+
 	feed, err := fp.ParseURL(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse RSS feed: %w", err)
+		return nil, fmt.Errorf("parsing RSS feed: %w", err)
 	}
 
-	// Pre-allocate slice with known capacity
-	newsItems := make([]NewsItem, 0, len(feed.Items))
+	newsItems, err := extractNewsItems(ctx, feed.Items)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, item := range feed.Items {
-		// Skip items with missing required fields
+	if len(newsItems) == 0 {
+		return nil, ErrNoNewsItems
+	}
+
+	return newsItems, nil
+}
+
+func extractNewsItems(ctx context.Context, items []*gofeed.Item) ([]NewsItem, error) {
+	newsItems := make([]NewsItem, 0, len(items))
+
+	for _, item := range items {
 		if item.Title == "" || item.Link == "" {
 			continue
 		}
 
-		// Check context cancellation
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, fmt.Errorf("context cancelled while parsing feed: %w", ctx.Err())
 		default:
 		}
 
@@ -60,8 +81,5 @@ func (f *feedImpl) ScrapeFeed(ctx context.Context, url string) ([]NewsItem, erro
 		})
 	}
 
-	if len(newsItems) == 0 {
-		return nil, fmt.Errorf("no valid news items found in feed")
-	}
 	return newsItems, nil
 }
