@@ -5,12 +5,10 @@ on:
     types: [published]
 
 permissions:
-  id-token: write
   contents: read
 
 env:
   AWS_REGION: "eu-central-1"
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   TF_API_TOKEN: ${{ secrets.TERRAFORM_TOKEN }}
   TF_WORKING_DIRECTORY: "infra/terraform/prd"
 
@@ -19,15 +17,17 @@ jobs:
     name: "Terraform Apply"
     runs-on: ubuntu-latest
     environment: prd
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: ${{ env.TF_WORKING_DIRECTORY }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - uses: hashicorp/setup-terraform@v4
+      - uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4
         with:
           cli_config_credentials_token: ${{ env.TF_API_TOKEN }}
 
@@ -44,11 +44,16 @@ jobs:
     needs: infrastructure
     runs-on: ubuntu-latest
     environment: prd
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Check out code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v6.1.0
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNTID }}:role/GithubTrigger
           aws-region: ${{ env.AWS_REGION }}

@@ -1,23 +1,27 @@
+// Package rss parses AWS RSS feeds into NewsItem records.
 package rss
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/k3a/html2text"
 	"github.com/mmcdole/gofeed"
 )
 
-type Feed interface {
-	ScrapeFeed(ctx context.Context, url string) ([]NewsItem, error)
+// ErrNoNewsItems is returned when a feed contains no usable items.
+var ErrNoNewsItems = errors.New("no valid news items found in feed")
+
+// Parser scrapes RSS feeds using gofeed.
+type Parser struct{}
+
+// NewParser returns a new Parser.
+func NewParser() *Parser {
+	return &Parser{}
 }
 
-type feedImpl struct{}
-
-func NewFeed() Feed {
-	return &feedImpl{}
-}
-
+// NewsItem describes a single AWS news item.
 type NewsItem struct {
 	Categories  []string
 	Description string
@@ -27,27 +31,29 @@ type NewsItem struct {
 	Title       string
 }
 
-func (f *feedImpl) ScrapeFeed(ctx context.Context, url string) ([]NewsItem, error) {
+// ScrapeFeed downloads the RSS feed at url and returns its valid items.
+func (f *Parser) ScrapeFeed(ctx context.Context, url string) ([]NewsItem, error) {
 	fp := gofeed.NewParser()
-	feed, err := fp.ParseURL(url)
+
+	feed, err := fp.ParseURLWithContext(url, ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse RSS feed: %w", err)
+		return nil, fmt.Errorf("parsing RSS feed: %w", err)
 	}
 
-	// Pre-allocate slice with known capacity
-	newsItems := make([]NewsItem, 0, len(feed.Items))
+	newsItems := extractNewsItems(feed.Items)
+	if len(newsItems) == 0 {
+		return nil, ErrNoNewsItems
+	}
 
-	for _, item := range feed.Items {
-		// Skip items with missing required fields
+	return newsItems, nil
+}
+
+func extractNewsItems(items []*gofeed.Item) []NewsItem {
+	newsItems := make([]NewsItem, 0, len(items))
+
+	for _, item := range items {
 		if item.Title == "" || item.Link == "" {
 			continue
-		}
-
-		// Check context cancellation
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
 		}
 
 		newsItems = append(newsItems, NewsItem{
@@ -55,13 +61,20 @@ func (f *feedImpl) ScrapeFeed(ctx context.Context, url string) ([]NewsItem, erro
 			Description: html2text.HTML2Text(item.Description),
 			GUID:        item.GUID,
 			Link:        item.Link,
-			Published:   item.PublishedParsed.String(),
+			Published:   publishedString(item),
 			Title:       item.Title,
 		})
 	}
 
-	if len(newsItems) == 0 {
-		return nil, fmt.Errorf("no valid news items found in feed")
+	return newsItems
+}
+
+// publishedString falls back to the raw <pubDate> text when gofeed cannot
+// parse it (PublishedParsed is nil for unrecognised date formats).
+func publishedString(item *gofeed.Item) string {
+	if item.PublishedParsed != nil {
+		return item.PublishedParsed.String()
 	}
-	return newsItems, nil
+
+	return item.Published
 }
