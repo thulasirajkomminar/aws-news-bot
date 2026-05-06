@@ -4,7 +4,6 @@ package bluesky
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -32,7 +31,13 @@ const (
 	maxPostLength        = 300
 	truncationSuffix     = "..."
 	numBodySeparators    = 2
-	rkeyHashBytes        = 8
+	// tidAlphabet is atproto's base32-sortable encoding (NOT standard base32).
+	tidAlphabet = "234567abcdefghijklmnopqrstuvwxyz"
+	tidLength   = 13
+	// tidFirstCharMask restricts the leading char to alphabet[0..15] so the
+	// encoded value's top bit is zero (a TID format requirement).
+	tidFirstCharMask = 0x0f
+	tidCharMask      = 0x1f
 )
 
 // Client is an authenticated Bluesky XRPC client.
@@ -105,13 +110,22 @@ func (b *Client) Post(ctx context.Context, handle, key string, item *rss.NewsIte
 	return nil
 }
 
-// rkeyFor derives a Bluesky-safe record key from an arbitrary stable
-// identifier (Rkeys must match a strict charset; truncated SHA-256 hex
-// satisfies it and gives ~64 bits of collision resistance).
+// rkeyFor derives a deterministic, valid TID-format Rkey from an arbitrary
+// stable identifier. app.bsky.feed.post requires Rkeys to be in the TID
+// format (13 chars, base32-sortable alphabet, top bit zero). Lexicon
+// validation only checks the format, so encoding hash bits into a
+// well-formed TID is accepted.
 func rkeyFor(key string) string {
 	sum := sha256.Sum256([]byte(key))
 
-	return hex.EncodeToString(sum[:rkeyHashBytes])
+	out := make([]byte, tidLength)
+	out[0] = tidAlphabet[sum[0]&tidFirstCharMask]
+
+	for i := 1; i < tidLength; i++ {
+		out[i] = tidAlphabet[sum[i]&tidCharMask]
+	}
+
+	return string(out)
 }
 
 func isDuplicateRecordErr(err error) bool {
