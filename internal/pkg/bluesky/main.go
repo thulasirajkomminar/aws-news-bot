@@ -5,14 +5,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/reiver/go-atproto/com/atproto/repo"
-	"github.com/reiver/go-atproto/com/atproto/server"
+	atproto "github.com/bluesky-social/indigo/api/atproto"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/thulasirajkomminar/aws-news-bot/internal/pkg/rss"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
 
 const (
+	defaultPDSHost = "https://bsky.social"
 	collectionName = "app.bsky.feed.post"
 	maxPostLength  = 300
 )
@@ -22,49 +25,59 @@ type Bluesky interface {
 }
 
 type blueskyImpl struct {
-	bearerToken string
+	client *xrpc.Client
 }
 
-func NewBluesky(identifier, password string) (Bluesky, error) {
-	var dst server.CreateSessionResponse
+func NewBluesky(ctx context.Context, identifier, password string) (Bluesky, error) {
+	client := &xrpc.Client{Host: defaultPDSHost}
 
-	err := server.CreateSession(&dst, identifier, password)
+	out, err := atproto.ServerCreateSession(ctx, client, &atproto.ServerCreateSession_Input{
+		Identifier: identifier,
+		Password:   password,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &blueskyImpl{
-		bearerToken: dst.AccessJWT,
-	}, nil
+	client.Auth = &xrpc.AuthInfo{
+		AccessJwt:  out.AccessJwt,
+		RefreshJwt: out.RefreshJwt,
+		Did:        out.Did,
+		Handle:     out.Handle,
+	}
+
+	return &blueskyImpl{client: client}, nil
 }
 
 func (b *blueskyImpl) Post(ctx context.Context, handle string, item rss.NewsItem) error {
-	var dst repo.CreateRecordResponse
 	when := time.Now().Format(time.RFC3339)
 	postText := constructPostText(item)
 	tags := generateTags(item.Categories)
 	facets := constructFacets(postText, tags)
 
-	post := map[string]any{
-		"$type":     collectionName,
-		"text":      postText,
-		"createdAt": when,
-		"facets":    facets,
-		"embed": map[string]any{
-			"$type": "app.bsky.embed.external",
-			"external": map[string]any{
-				"uri":         item.Link,
-				"title":       item.Title,
-				"description": item.Description,
+	post := &bsky.FeedPost{
+		LexiconTypeID: collectionName,
+		Text:          postText,
+		CreatedAt:     when,
+		Facets:        facets,
+		Embed: &bsky.FeedPost_Embed{
+			EmbedExternal: &bsky.EmbedExternal{
+				LexiconTypeID: "app.bsky.embed.external",
+				External: &bsky.EmbedExternal_External{
+					Uri:         item.Link,
+					Title:       item.Title,
+					Description: item.Description,
+				},
 			},
 		},
 	}
 
-	err := repo.CreateRecord(&dst, b.bearerToken, handle, collectionName, post)
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err := atproto.RepoCreateRecord(ctx, b.client, &atproto.RepoCreateRecord_Input{
+		Collection: collectionName,
+		Repo:       handle,
+		Record:     &lexutil.LexiconTypeDecoder{Val: post},
+	})
+	return err
 }
 
 func constructPostText(item rss.NewsItem) string {
@@ -112,26 +125,28 @@ func toCamelCase(str string) string {
 	return strings.Join(words, "")
 }
 
-func constructFacets(postText string, tags []string) []map[string]any {
-	var facets []map[string]any
+func constructFacets(postText string, tags []string) []*bsky.RichtextFacet {
+	var facets []*bsky.RichtextFacet
 	for _, tag := range tags {
 		start := strings.Index(postText, tag)
-		if start != -1 {
-			end := start + len(tag)
-			facet := map[string]any{
-				"index": map[string]int{
-					"byteStart": start,
-					"byteEnd":   end,
-				},
-				"features": []map[string]any{
-					{
-						"$type": "app.bsky.richtext.facet#tag",
-						"tag":   tag[1:], // Remove the '#' from the tag
+		if start == -1 {
+			continue
+		}
+		end := start + len(tag)
+		facets = append(facets, &bsky.RichtextFacet{
+			Index: &bsky.RichtextFacet_ByteSlice{
+				ByteStart: int64(start),
+				ByteEnd:   int64(end),
+			},
+			Features: []*bsky.RichtextFacet_Features_Elem{
+				{
+					RichtextFacet_Tag: &bsky.RichtextFacet_Tag{
+						LexiconTypeID: "app.bsky.richtext.facet#tag",
+						Tag:           tag[1:], // Remove the '#' from the tag
 					},
 				},
-			}
-			facets = append(facets, facet)
-		}
+			},
+		})
 	}
 	return facets
 }

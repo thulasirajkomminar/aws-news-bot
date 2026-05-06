@@ -25,7 +25,7 @@ func NewService(ctx context.Context, cfg *config.Config) (*Service, error) {
 		return nil, err
 	}
 
-	bsky, err := bluesky.NewBluesky(cfg.Bluesky.Handle, cfg.Bluesky.Password)
+	bsky, err := bluesky.NewBluesky(ctx, cfg.Bluesky.Handle, cfg.Bluesky.Password)
 	if err != nil {
 		log.Error().Err(err).Msg("error creating Bluesky client")
 		return nil, err
