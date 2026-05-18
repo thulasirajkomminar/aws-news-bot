@@ -29,6 +29,15 @@ jobs:
           persist-credentials: false
       - name: Create embed placeholder
         run: mkdir -p internal/web/dist && touch internal/web/dist/.gitkeep
+      - name: Pre-install golangci-lint (works around upstream install.sh SBOM glob bug)
+        run: |
+          set -euo pipefail
+          VERSION=2.12.2
+          TARBALL="golangci-lint-${VERSION}-linux-amd64.tar.gz"
+          curl -sSfL "https://github.com/golangci/golangci-lint/releases/download/v${VERSION}/${TARBALL}" -o /tmp/glc.tar.gz
+          tar -xzf /tmp/glc.tar.gz -C /tmp
+          sudo mv "/tmp/golangci-lint-${VERSION}-linux-amd64/golangci-lint" /usr/local/bin/golangci-lint
+          golangci-lint --version
       - uses: schubergphilis/mcvs-golang-action@119f1599febb8a49cac9f8924675ca41a6497c41 # V3.11.12
         with:
           build-tags: ${{ matrix.args.build-tags }}
