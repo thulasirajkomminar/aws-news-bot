@@ -22,7 +22,7 @@ data "aws_iam_policy_document" "lambda_policy" {
 
 module "lambda" {
   source  = "schubergphilis/mcaf-lambda/aws"
-  version = "3.0.0"
+  version = "4.0.0"
 
   name          = local.name
   architecture  = "arm64"
