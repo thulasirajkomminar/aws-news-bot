@@ -14,7 +14,7 @@ require (
 	github.com/k3a/html2text v1.4.0
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/rs/zerolog v1.35.1
-	golang.org/x/text v0.37.0
+	golang.org/x/text v0.38.0
 )
 
 require (
