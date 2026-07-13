@@ -7,8 +7,8 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.42.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.27
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.50
-	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.59.2
-	github.com/aws/aws-sdk-go-v2/service/ssm v1.69.5
+	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.60.0
+	github.com/aws/aws-sdk-go-v2/service/ssm v1.71.0
 	github.com/bluesky-social/indigo v0.0.0-20260629160527-dfe5578fd537
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/k3a/html2text v1.4.0
