@@ -9,12 +9,12 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.61
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.63.3
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.73.6
-	github.com/bluesky-social/indigo v0.0.0-20260730171912-8b43a326dbbb
+	github.com/bluesky-social/indigo v0.0.0-20260818011358-8e6a00df1117
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/k3a/html2text v1.4.0
 	github.com/mmcdole/gofeed v1.4.1
 	github.com/rs/zerolog v1.35.1
-	golang.org/x/text v0.40.0
+	golang.org/x/text v0.41.0
 )
 
 require (
@@ -76,8 +76,8 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/crypto v0.54.0 // indirect
-	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	lukechampine.com/blake3 v1.2.1 // indirect
