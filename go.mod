@@ -11,10 +11,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.73.6
 	github.com/bluesky-social/indigo v0.0.0-20260818011358-8e6a00df1117
 	github.com/caarlos0/env/v11 v11.4.1
-	github.com/k3a/html2text v1.4.0
-	github.com/mmcdole/gofeed v1.4.1
+	github.com/k3a/html2text v1.5.0
+	github.com/mmcdole/gofeed v1.5.0
 	github.com/rs/zerolog v1.35.1
-	golang.org/x/text v0.41.0
+	golang.org/x/text v0.42.0
 )
 
 require (
