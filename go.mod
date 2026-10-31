@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.21.8
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.70.0
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.79.0
-	github.com/bluesky-social/indigo v0.0.0-20260929184902-b2619d864df0
+	github.com/bluesky-social/indigo v0.0.0-20261030231632-15edb2cd5ba3
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/k3a/html2text v1.5.0
 	github.com/mmcdole/gofeed v1.5.0
@@ -56,7 +56,7 @@ require (
 	github.com/ipfs/go-metrics-interface v0.0.1 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
-	github.com/mattn/go-colorable v0.1.15 // indirect
+	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mmcdole/goxpp/v2 v2.0.0 // indirect
@@ -78,9 +78,9 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
 )
